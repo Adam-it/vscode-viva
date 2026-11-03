@@ -372,7 +372,7 @@ The extension provides the following tools
 | SharePointSiteSet                 | Updates the specified SharePoint Online site              | 
 | SharePointFrameworkProjectUpgrade | Upgrade SharePoint Framework project                      |
 | SharePointFrameworkLocalEnvironmentSetup | Set up local environment for SharePoint Framework development |
-| SharePointFrameworkCreateNewProject | Create a new SharePoint Framework project               |
+| SharePointFrameworkCreateNewProject | Create a new SharePoint Framework project or extend existing one |
 
 [Check out our docs for more details](https://pnp.github.io/vscode-viva/features/github-copilot-capabilities)
 

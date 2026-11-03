@@ -1,15 +1,16 @@
 import { CancellationToken, LanguageModelTextPart, LanguageModelTool, LanguageModelToolInvocationOptions, LanguageModelToolInvocationPrepareOptions, LanguageModelToolResult, MarkdownString } from 'vscode';
 import { Scaffolder } from '../../../services/actions/Scaffolder';
+import { ProjectInformation } from '../../../services/dataType/ProjectInformation';
+import { ComponentType } from '../../../constants';
 
 
 interface ISharePointFrameworkCreateNewProject {
-    solutionName: string;
+    solutionName?: string;
     componentType: 'webpart' | 'extension' | 'library' | 'adaptiveCardExtension';
     componentName: string;
     framework?: 'none' | 'react' | 'minimal';
     extensionType?: 'ApplicationCustomizer' | 'FieldCustomizer' | 'ListViewCommandSet' | 'FormCustomizer' | 'SearchQueryModifier';
     aceTemplateType?: 'Generic' | 'Search' | 'DataVisualization';
-    skipInstall?: boolean;
 }
 
 export class SharePointFrameworkCreateNewProject implements LanguageModelTool<ISharePointFrameworkCreateNewProject> {
@@ -17,11 +18,13 @@ export class SharePointFrameworkCreateNewProject implements LanguageModelTool<IS
         options: LanguageModelToolInvocationOptions<ISharePointFrameworkCreateNewProject>,
         _token: CancellationToken
     ) {
+        const isExistingProject = !!ProjectInformation.isSPFxProject;
+
         try {
             const params = options.input;
             const missing: string[] = [];
 
-            if (!params.solutionName?.trim()) {
+            if (!isExistingProject && !params.solutionName?.trim()) {
                 missing.push('solutionName');
             }
 
@@ -56,13 +59,23 @@ export class SharePointFrameworkCreateNewProject implements LanguageModelTool<IS
                 return new LanguageModelToolResult([new LanguageModelTextPart(response)]);
             }
 
+            if (isExistingProject && await Scaffolder.componentFolderExists(params.componentType as ComponentType, params.componentName)) {
+                return new LanguageModelToolResult([
+                    new LanguageModelTextPart(`A ${params.componentType} named "${params.componentName}" already exists in the current SharePoint Framework project. Please provide a different componentName.`)
+                ]);
+            }
+
             const quote = (value: string) => `"${value.replace(/\"/g, '\\\"')}"`;
-            const commandParts: string[] = [
-                'yo @microsoft/sharepoint',
-                `--solution-name ${quote(params.solutionName)}`,
+            const commandParts: string[] = ['yo @microsoft/sharepoint'];
+
+            if (!isExistingProject) {
+                commandParts.push(`--solution-name ${quote(params.solutionName!)}`);
+            }
+
+            commandParts.push(
                 `--component-name ${quote(params.componentName)}`,
                 `--component-type ${quote(params.componentType)}`
-            ];
+            );
 
             if (params.componentType === 'webpart' || params.componentType === 'extension') {
                 commandParts.push(`--framework ${quote(params.framework!)}`);
@@ -76,11 +89,18 @@ export class SharePointFrameworkCreateNewProject implements LanguageModelTool<IS
                 commandParts.push(`--aceTemplateType ${quote(params.aceTemplateType!)}`);
             }
 
-            if (params.skipInstall) {
-                commandParts.push('--skip-install');
-            }
-
             const yoCommand = commandParts.join(' ');
+
+            if (isExistingProject) {
+                await Scaffolder.addComponentToProjectCopilot(yoCommand);
+
+                let response = `Added a new ${params.componentType} to the existing SharePoint Framework project and installed its dependencies by executing the following SPFx command:\n\n\`\`\`\n${yoCommand}\n\`\`\``;
+                if (params.solutionName?.trim()) {
+                    response += '\n\nThe provided solutionName was ignored because the component was added to the currently opened SharePoint Framework project.';
+                }
+
+                return new LanguageModelToolResult([new LanguageModelTextPart(response)]);
+            }
 
             await Scaffolder.createProjectCopilot(yoCommand);
 
@@ -89,7 +109,8 @@ export class SharePointFrameworkCreateNewProject implements LanguageModelTool<IS
             return new LanguageModelToolResult([new LanguageModelTextPart(response)]);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
-            return new LanguageModelToolResult([new LanguageModelTextPart(`Failed to create a new SharePoint Framework project: ${errorMessage}`)]);
+            const action = isExistingProject ? 'add a component to the SharePoint Framework project' : 'create a new SharePoint Framework project';
+            return new LanguageModelToolResult([new LanguageModelTextPart(`Failed to ${action}: ${errorMessage}`)]);
         }
     }
 
@@ -97,6 +118,16 @@ export class SharePointFrameworkCreateNewProject implements LanguageModelTool<IS
         options: LanguageModelToolInvocationPrepareOptions<ISharePointFrameworkCreateNewProject>,
         _token: CancellationToken
     ) {
+        if (ProjectInformation.isSPFxProject) {
+            return {
+                invocationMessage: 'Adding component to SharePoint Framework project',
+                confirmationMessages: {
+                    title: 'Add component to SharePoint Framework project',
+                    message: new MarkdownString('Should I add a new component to the currently opened SharePoint Framework project?'),
+                },
+            };
+        }
+
         const confirmationMessages = {
             title: 'Create new SharePoint Framework project',
             message: new MarkdownString('Should I create a new SharePoint Framework project?'),

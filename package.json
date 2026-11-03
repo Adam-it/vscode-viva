@@ -1034,9 +1034,9 @@
           "spfx-toolkit"
         ],
         "toolReferenceName": "SharePointFrameworkCreateNewProject",
-        "displayName": "Create new SharePoint Framework project",
-        "modelDescription": "This tool will help you create a new SharePoint Framework project using the Yeoman generator. It will prompt for project details and generate the necessary files and structure for a new SPFx project.",
-        "userDescription": "Create new SharePoint Framework project",
+        "displayName": "Create new SharePoint Framework project or add a component",
+        "modelDescription": "This tool will help you create a new SharePoint Framework (SPFx) project or extend an existing one using the Yeoman generator. If the currently opened workspace is already an SPFx project, the new component (web part, extension, library or Adaptive Card Extension) is added to that existing project and its dependencies are installed, so solutionName is not needed. Otherwise, a new SPFx project with the given solutionName is generated with the necessary files and structure.",
+        "userDescription": "Create new SharePoint Framework project or add a component to the currently opened one",
         "canBeReferencedInPrompt": true,
         "icon": "$(package)",
         "inputSchema": {
@@ -1044,7 +1044,7 @@
           "properties": {
             "solutionName": {
               "type": "string",
-              "description": "Solution name and folder name. This option is required."
+              "description": "Solution name and folder name. Required when creating a new project. Not needed (and ignored) when the currently opened workspace is already a SharePoint Framework project, as the component is then added to that project."
             },
             "componentType": {
               "type": "string",
@@ -1088,14 +1088,9 @@
                 "Search",
                 "DataVisualization"
               ]
-            },
-            "skipInstall": {
-              "type": "boolean",
-              "description": "Set to true to add --skip-install and avoid automatic dependency installation."
             }
           },
           "required": [
-            "solutionName",
             "componentType",
             "componentName"
           ],
